@@ -1,4 +1,5 @@
 ﻿using Core.Entities;
+using Core.Specifications;
 
 namespace Core.Interfaces
 {
@@ -6,7 +7,7 @@ namespace Core.Interfaces
     {
 
         //contract for freelancer
-        Task<IEnumerable<Freelancer>> GetAllAsync(string? search, string? skill, string? hobby);
+        Task<IReadOnlyList<Freelancer>> GetAllAsync(ISpecification<Freelancer> spec);
         Task<Freelancer?> GetByIdAsync(int id);
         Task<Freelancer?> GetByUsernameAsync(string username);
         Task<Freelancer?> GetByEmailAsync(string email);
@@ -16,5 +17,6 @@ namespace Core.Interfaces
         Task DeleteAsync(int id);
         Task ArchiveAsync(int id);
         Task UnarchiveAsync(int id);
+        Task<int> CountAsync(ISpecification<Freelancer> spec);
     }
 }

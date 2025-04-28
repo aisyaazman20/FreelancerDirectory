@@ -2,6 +2,7 @@
 using Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Data;
+using Core.Specifications;
 
 namespace Infrastructure.Repositories
 {
@@ -14,35 +15,9 @@ namespace Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Freelancer>> GetAllAsync(string? search, string? skill, string? hobby)
+        public async Task<IReadOnlyList<Freelancer>> GetAllAsync(ISpecification<Freelancer> spec)
         {
-            //retrieve active freelancers including skills & hobbies from db
-            var query = _context.Freelancers
-                .Include(f => f.Skills)
-                .Include(f => f.Hobbies)
-                .Where(f => !f.IsArchived)
-                .AsQueryable();
-
-            //search filter using LINQ
-            if (!string.IsNullOrEmpty(search))
-            {
-                query = query.Where(f =>
-                    f.Username.Contains(search) ||
-                    f.Email.Contains(search) ||
-                    f.PhoneNumber.Contains(search));
-            }
-
-            if (!string.IsNullOrWhiteSpace(skill))
-            {
-                query = query.Where(f =>
-                    f.Skills.Any(s => s.Name.Contains(skill)));
-            }
-
-            if (!string.IsNullOrWhiteSpace(hobby))
-            {
-                query = query.Where(f =>
-                    f.Skills.Any(h => h.Name.Contains(hobby)));
-            }
+            var query = SpecificationEvaluator<Freelancer>.GetQuery(_context.Freelancers.AsQueryable(), spec);  //uses spec evaluator method
 
             return await query.ToListAsync();
         }
@@ -119,6 +94,16 @@ namespace Infrastructure.Repositories
                 freelancer.IsArchived = false;
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<int> CountAsync(ISpecification<Freelancer> spec)
+        {
+            return await ApplySpecification(spec).CountAsync();
+        }
+        
+        private IQueryable<Freelancer> ApplySpecification(ISpecification<Freelancer> spec)
+        {
+            return SpecificationEvaluator<Freelancer>.GetQuery(_context.Set<Freelancer>().AsQueryable(), spec);
         }
     }
 }

@@ -2,44 +2,27 @@ using Infrastructure.Data;
 using Core.Interfaces;
 using Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
+using API.Middleware;
 
-//
-
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args); //entrypoint
 
 //REGISTER SERVICES
 
-// register DbContext
 builder.Services.AddDbContext<FreelancerDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));// register DbContext using DI container     
 
-//register repository
-builder.Services.AddScoped<IFreelancerRepository, FreelancerRepository>();
+builder.Services.AddScoped<IFreelancerRepository, FreelancerRepository>();//register repository
+    
+builder.Services.AddAutoMapper(typeof(Program));//register automapper
 
-//register automapper
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddControllers(); //register controller
 
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Freelancer Directory API", Version = "v1" });
-});
 
-var app = builder.Build();
+var app = builder.Build(); //build app
+app.UseHttpsRedirection(); //redirect http reqs to https
+app.UseMiddleware<ExceptionMiddleware>(); //register errorhandler
+app.MapControllers(); //enables [ApiController] and [Route] 
 
-app.MapControllers(); //enables [ApiController] routes
-
-// Enable Swagger in development
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(); 
-}
-
-
-app.UseHttpsRedirection();
-
-app.Run();
+app.Run(); 
 

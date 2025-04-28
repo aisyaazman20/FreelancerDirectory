@@ -1,8 +1,11 @@
 ﻿using Core.Entities;
 using Core.Interfaces;
+using Core.Specifications;
 using Microsoft.AspNetCore.Mvc;
 using AutoMapper;
 using API.Dtos;
+using API.Middleware;
+using API.Helpers;
 
 namespace API.Controllers
 {
@@ -19,12 +22,18 @@ namespace API.Controllers
         }
 
 
-        //GET ALL FREELANCERS
+        //GET ALL FREELANCERS & filter
+        //from query accept query string and bind with FreelancerSpecParams object named specParams
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Freelancer>>> GetAll([FromQuery] string? search, [FromQuery] string? skill, [FromQuery] string? hobby)
+        public async Task<ActionResult<IEnumerable<FreelancerResponseDto>>> GetAll([FromQuery] FreelancerSpecParams specParams, [FromQuery] PaginationParams pageParams)  
         {
-            var freelancers = await _repository.GetAllAsync(search, skill, hobby);
-            var response = _mapper.Map<IEnumerable<FreelancerResponseDto>>(freelancers);
+            var spec = new FreelancerWithFilterSpec(specParams, pageParams); //creates FreelancerWithFilterSpec for data query
+
+            var totalItems = await _repository.CountAsync(spec);
+            var freelancers = await _repository.GetAllAsync(spec); //call the method in freelancer repo
+
+            var data = _mapper.Map<IReadOnlyList<FreelancerResponseDto>>(freelancers);
+            var response = new Pagination<FreelancerResponseDto>(pageParams.PageIndex, pageParams.PageSize, totalItems, data);
             return Ok(response);
         }
 
@@ -33,7 +42,7 @@ namespace API.Controllers
         public async Task<ActionResult<FreelancerResponseDto>> GetById(int id)
         {
             var freelancer = await _repository.GetByIdAsync(id);
-            if (freelancer == null) return NotFound("User does not exists.");
+            if (freelancer == null)  return BadRequest("User does not exists");
 
             var response = _mapper.Map<FreelancerResponseDto>(freelancer);
             return Ok(response);
@@ -41,13 +50,12 @@ namespace API.Controllers
 
 
         //GET FREELANCER BY WILD SEARCH
-        [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<Freelancer>>> Search([FromQuery] string query)
-        {
-            var results = await _repository.SearchAsync(query);
-            return Ok(results);
-        }
-
+        //[HttpGet("search")]
+        //public async Task<ActionResult<IEnumerable<Freelancer>>> Search([FromQuery] string query)
+        //{
+        //    var results = await _repository.SearchAsync(query);
+        //    return Ok(results);
+        //}
 
         //CREATE FREELANCER
         [HttpPost]
@@ -55,7 +63,7 @@ namespace API.Controllers
         {
             //check username if exists
             var usernames = await _repository.GetByUsernameAsync(dto.Username);
-            if (usernames != null) return BadRequest("Username already exists");
+            if (usernames != null) return BadRequest("User already exists");
 
             //check email if exists
             var emails = await _repository.GetByEmailAsync(dto.Email);
@@ -75,12 +83,12 @@ namespace API.Controllers
         {
             // Check if the user exists
             var freelancer = await _repository.GetByIdAsync(id);
-            if (freelancer == null) return NotFound("User does not exist.");
+            if (freelancer == null) return BadRequest("User does not exist.");
 
             // Check for duplicate username
             var userWithSameUsername = await _repository.GetByUsernameAsync(updatedDto.Username);
             if (userWithSameUsername != null && userWithSameUsername.Id != id)
-                return BadRequest("Username already exists");
+                return BadRequest("User already exists");
 
             // Check for duplicate email
             var userWithSameEmail = await _repository.GetByEmailAsync(updatedDto.Email);
@@ -96,9 +104,9 @@ namespace API.Controllers
         //DELETE FREELANCER
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
-        {
+        {   
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) return NotFound("User does not exists.");
+            if (existing == null) return BadRequest("User does not exist.");
 
             await _repository.DeleteAsync(id);
             return NoContent();
@@ -109,7 +117,7 @@ namespace API.Controllers
         public async Task<ActionResult> Archive(int id)
         {
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) return NotFound("User does not exists.");
+            if (existing == null) return BadRequest("User does not exist.");
 
             await _repository.ArchiveAsync(id);
             return NoContent();
@@ -120,10 +128,11 @@ namespace API.Controllers
         public async Task<ActionResult> Unarchive(int id)
         {
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) return NotFound("User does not exists.");
+            if (existing == null) return BadRequest("User does not exist.");
 
             await _repository.UnarchiveAsync(id);
             return NoContent();
         }
+
     }
 }
